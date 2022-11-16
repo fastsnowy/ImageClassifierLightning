@@ -1,0 +1,7 @@
+params:
+  batch_size:
+  num_class:
+  epochs:
+  m_name: vgg-16
+  optim_name:
+  seed:
