@@ -1,6 +1,7 @@
 import os
 import numpy as np
-from sklearn.model_selection import StratifiedKFold, KFold
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
 import torch
 import torchmetrics
 import pytorch_lightning as pl
@@ -12,56 +13,74 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils, models
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 import numpy as np
 import wandb
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 import hydra
 from omegaconf import DictConfig
-import seaborn as sns
-import pandas as pd
-import matplotlib.pyplot as plt
+
+# %% [markdown]
+# ## モデルの定義
+
 
 data_transforms = {
     'train': transforms.Compose([
         transforms.RandomResizedCrop(224),
-        # transforms.CenterCrop(224),
-        # transforms.RandomHorizontalFlip(p=0.1),
-        # transforms.RandomVerticalFlip(p=0.1),
-        # transforms.RandomAutocontrast(p=0.1),
         transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
     ]),
     'valid': transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
     ]),
 }
 
-class mymodel(pl.LightningModule):
+# %%
 
+# %%
+class MySubset(torch.utils.data.Dataset):
+    def __init__(self, dataset, indices, transform=None):
+        self.dataset = dataset
+        self.indices = indices
+        self.transform = transform
+
+    def __getitem__(self, idx):
+        img, label = self.dataset[self.indices[idx]]
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
+
+    def __len__(self):
+        return len(self.indices)
+
+# %%
+sum_matrix = torch.zeros(4,4).cuda()
+
+# %%
+class mymodel(pl.LightningModule):
     def __init__(self,
-    batch_size, 
-    num_class, 
-    optim_hparams: dict,
-    model_name,
-    optim_name,
-    d_train=None,
-    d_val=None,
-    d_test=None,
+    batch_size=32, 
+    num_class=None, 
+    optim_hparams: dict=None,
+    m_name=None,
+    optim_name=None,
     ):
         super().__init__()
         self.save_hyperparameters()
         self.batch_size = batch_size
         self.num_class = num_class
-        self.model_name = model_name
+        self.m_name = m_name
         self.optim_name = optim_name
         self.conf_matrix = torchmetrics.ConfusionMatrix(num_class)
-        # self.d_train = d_train
-        # self.d_val = d_val
-        # self.d_test = d_test
 
-        if self.model_name == "vgg16":
+
+        if self.m_name == "vgg-16":
             #vgg16
             self.model = models.vgg16(pretrained=True)
             for param in self.model.parameters():
@@ -69,8 +88,12 @@ class mymodel(pl.LightningModule):
             num_feat = self.model.classifier[6].in_features
             self.model.classifier[6] = nn.Linear(num_feat, self.hparams.num_class)
             print(self.model)
+            # for param in self.model.features.parameters():
+            #     param.requires_grad = False
+            # for param in self.model.avgpool.parameters():
+            #     param.requires_grad = False
         
-        elif self.model_name == 'resnet18':
+        elif self.m_name == 'resnet-18':
             # resnet18
             self.model = models.resnet18(pretrained=True)
             for param in self.model.parameters():
@@ -78,8 +101,15 @@ class mymodel(pl.LightningModule):
             num_feat = self.model.fc.in_features
             self.model.fc = nn.Linear(num_feat, self.hparams.num_class)
         
+        elif self.m_name == "resnet-50":
+            self.model = models.resnet50(pretrained=True)
+            for param in self.model.parameters():
+                param.requires_grad=False
+            num_feat = self.model.fc.in_features
+            self.model.fc = nn.Linear(num_feat, self.hparams.num_class)
+        
         else:
-            assert False, f'不明なmodelです: "{self.model_name}"'
+            assert False, f'不明なmodelです: "{self.m_name}"'
 
         # loss
         self.loss_module = nn.CrossEntropyLoss()
@@ -134,29 +164,29 @@ class mymodel(pl.LightningModule):
         targets = torch.cat([x["targets"] for x in outputs])
         avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['test_acc'] for x in outputs]).mean()
-        # mat = self.conf_matrix(preds, targets)
-        # sum_matrix += mat
-        # names = ["Bacterialblight", "Blast", "Brownspot", "Tungro"]
-        # df = pd.DataFrame(mat.cpu().numpy(), index=names, columns=names)
-        # plt.figure(figsize = (10,7))
-        # sns.set(font_scale=1.3)
-        # # plt.xlabel('Predicted label')
-        # # plt.ylabel('True label')
-        # fig_ = sns.heatmap(df, annot=True, cmap='Blues', fmt="g")
-        # fig_.set(xlabel='Predicited label', ylabel='True label')
-        # fig_.get_figure()
-        # # plt.close(fig_)
-        # wandb.log({"confusion matrix(testset)": [wandb.Image(fig_)]})
-        # df_sum = pd.DataFrame(sum_matrix.cpu().numpy(), index=names, columns=names)
-        # plt.figure(figsize = (10,7))
-        # sns.set(font_scale=1.3)
-        # # plt.xlabel('Predicted label')
-        # # plt.ylabel('True label')
-        # fig_s = sns.heatmap(df_sum, annot=True, cmap='Blues', fmt="g")
-        # fig_s.set(xlabel='Predicited label', ylabel='True label')
-        # fig_s.get_figure()
-        # # plt.close(fig_s)
-        # wandb.log({"confusion matrix(sum)": [wandb.Image(fig_s)]})
+        mat = self.conf_matrix(preds, targets)
+        sum_matrix += mat
+        names = ["Bacterialblight", "Blast", "Brownspot", "Tungro"]
+        df = pd.DataFrame(mat.cpu().numpy(), index=names, columns=names)
+        plt.figure(figsize = (10,7))
+        sns.set(font_scale=1.3)
+        # plt.xlabel('Predicted label')
+        # plt.ylabel('True label')
+        fig_ = sns.heatmap(df, annot=True, cmap='Blues', fmt="g")
+        fig_.set(xlabel='Predicited label', ylabel='True label')
+        fig_.get_figure()
+        # plt.close(fig_)
+        wandb.log({"confusion matrix(testset)": [wandb.Image(fig_)]})
+        df_sum = pd.DataFrame(sum_matrix.cpu().numpy(), index=names, columns=names)
+        plt.figure(figsize = (10,7))
+        sns.set(font_scale=1.3)
+        # plt.xlabel('Predicted label')
+        # plt.ylabel('True label')
+        fig_s = sns.heatmap(df_sum, annot=True, cmap='Blues', fmt="g")
+        fig_s.set(xlabel='Predicited label', ylabel='True label')
+        fig_s.get_figure()
+        # plt.close(fig_s)
+        wandb.log({"confusion matrix(sum)": [wandb.Image(fig_s)]})
 
         return {'avg_test_loss': avg_loss, 'test_acc': avg_acc, 'preds': preds, 'targets': targets}
 
@@ -169,24 +199,76 @@ class mymodel(pl.LightningModule):
         else:
             assert False, f'不明なOptimizerです: "{self.hparams.optim_name}"'
         return optimizer
-class MySubset(torch.utils.data.Dataset):
-    def __init__(self, dataset, indices, transform=None):
-        self.dataset = dataset
-        self.indices = indices
-        self.transform = transform
 
-    def __getitem__(self, idx):
-        img, label = self.dataset[self.indices[idx]]
-        if self.transform:
-            img = self.transform(img)
+# %%
 
-        return img, label
+# %%
 
-    def __len__(self):
-        return len(self.indices)
-
-@hydra.main("config", "config")
+@hydra.main(config_path='config', config_name='config')
 def main(cfg: DictConfig) -> None:
-    pass
+    pl.seed_everything(cfg.models.params.seed)
+    kf = KFold(n_splits=5, shuffle=True, random_state=2022)
+    cv = 0.0
+    cvt = 0.0
+    train_set = ImageFolder(cfg.dataset.path.train)
+# %%
+    test_set = ImageFolder(cfg.dataset.path.test, transform=data_transforms['valid'])
+    test_loader = DataLoader(test_set, cfg.models.params.batch_size, True, pin_memory=True, num_workers=8)
+    for fold, (train_idx, val_idx) in enumerate(kf.split(train_set)):
+        net = mymodel(
+            batch_size=cfg.models.params.batch_size,
+            num_class=cfg.models.params.num_class,
+            m_name=cfg.models.params.model_name,
+            optim_name=cfg.models.params.optim_name,
+            optim_hparams=cfg.models.optim_params
+            )
+        name =f"{cfg.models.params.model_name}: fold-{fold}"
+        save_path = name
+        os.makedirs(save_path, exist_ok=True)
+        ckpt = ModelCheckpoint(
+        monitor="val_loss",
+        mode="min",
+        dirpath=save_path,
+        filename="{epoch}--{val_loss:.3f}",
+        )
+
+        wandb_logger = WandbLogger(
+            project=cfg.wandb.project,
+            group=f"model:{cfg.models.params.model_name}, dataset:{cfg.dataset.name}",
+            job_type=cfg.wandb.job_type,
+            tags=[cfg.models.params.model_name, cfg.dataset.name],
+            name=name,
+            )
+        early = EarlyStopping(monitor="val_loss", patience=5)
+        d_train = MySubset(train_set, train_idx, data_transforms['train'])
+        d_val = MySubset(train_set, val_idx, data_transforms['valid'])
+        train_loader = DataLoader(d_train, cfg.models.params.batch_size, shuffle=True, pin_memory=True, num_workers=8)
+        val_loader = DataLoader(d_val, cfg.models.params.batch_size, shuffle=False, pin_memory=True, num_workers=8)
+        
+        trainer = pl.Trainer(
+            gpus=1, 
+            max_epochs=cfg.models.params.epochs, 
+            logger=wandb_logger, 
+            callbacks=[early, ckpt]
+            )
+        trainer.fit(net, train_loader, val_loader)
+        cv += trainer.callback_metrics["avg_acc"].mean().item() /kf.n_splits
+        trainer.test(net, test_loader, "best")
+        # trainer.test(net, ckpt_path="best", test_dataloaders=test_loader)
+        test_acc = trainer.callback_metrics["test_acc"].item()
+        cvt += test_acc / kf.n_splits
+        del net
+        # wandb.finish()
+        if fold != 4:
+            wandb.finish()
+        else:
+            wandb.log({"CV_test": cvt, "CV": cv})
+            wandb.finish()
+        print(f"fold:{fold},test_acc:{test_acc}")
+    
+    return None
+
 if __name__ == '__main__':
+    print("🐬evaluation start.🐬")
     main()
+    print("evaluation finished.😂")

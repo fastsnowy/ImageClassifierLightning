@@ -1,3 +1,4 @@
+name: CFGAN
 path:
-  train:
-  test:
+  train: /workspace/data/RiceLeaf_DataAugment/rice-leaf-CFGAN-ours/train
+  test: /workspace/data/RiceLeafSplit/test

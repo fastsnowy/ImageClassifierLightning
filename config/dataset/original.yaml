@@ -1,4 +1,4 @@
-# @package _group_
+name: original
 path:
-  train:
-  test:
+  train: /workspace/data/RiceLeafSplit/train
+  test: /workspace/data/RiceLeafSplit/test

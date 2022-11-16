@@ -1,0 +1,4 @@
+name: FastGAN
+path:
+  train: /workspace/data/RiceLeaf_DataAugment/rice-leaf-aug-fgan/train
+  test: /workspace/data/RiceLeafSplit/test

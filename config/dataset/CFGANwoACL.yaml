@@ -1,3 +1,4 @@
+name: CFGANwoACL
 path:
-  train:
-  test:
+  train: /workspace/data/RiceLeaf_DataAugment/rice-leaf-CFGAN-withoutACL/train
+  test: /workspace/data/RiceLeafSplit/test

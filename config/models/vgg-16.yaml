@@ -1,7 +1,11 @@
 params:
-  batch_size:
-  num_class:
-  epochs:
-  m_name: vgg-16
-  optim_name:
-  seed:
+  model_name: vgg-16
+  optim_name: SGD
+  batch_size: 32
+  num_class: 4
+  epochs: 40
+  seed: 42
+
+optim_params:
+  lr: 0.01
+  momentum: 0.9

@@ -1,3 +1,4 @@
 defaults:
+  - wandb: wandb
   - dataset: original
   - models: vgg-16
