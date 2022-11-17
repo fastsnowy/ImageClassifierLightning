@@ -1,5 +1,5 @@
 params:
-  model_name: resnet-18
+  model_name: resnet-50
   optim_name: SGD
   batch_size: 32
   num_class: 4
