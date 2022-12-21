@@ -33,8 +33,8 @@ class mymodel(pl.LightningModule):
         if self.m_name == "vgg-16":
             #vgg16
             self.model = models.vgg16(pretrained=True)
-            for param in self.model.parameters():
-                param.requires_grad=False
+            # for param in self.model.parameters():
+            #     param.requires_grad=False
             num_feat = self.model.classifier[6].in_features
             self.model.classifier[6] = nn.Linear(num_feat, self.hparams.num_class)
             print(self.model)
@@ -46,8 +46,8 @@ class mymodel(pl.LightningModule):
         elif self.m_name == 'resnet-18':
             # resnet18
             self.model = models.resnet18(pretrained=True)
-            for param in self.model.parameters():
-                param.requires_grad=False
+            # for param in self.model.parameters():
+            #     param.requires_grad=False
             num_feat = self.model.fc.in_features
             self.model.fc = nn.Linear(num_feat, self.hparams.num_class)
         

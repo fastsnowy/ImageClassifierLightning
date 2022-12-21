@@ -25,6 +25,8 @@ from classifier import mymodel
 import hydra
 from omegaconf import DictConfig
 
+from datetime import datetime
+
 data_transforms = {
     'train': transforms.Compose([
         transforms.RandomResizedCrop(224),
@@ -88,7 +90,7 @@ def main(cfg: DictConfig) -> None:
 
         wandb_logger = WandbLogger(
             project=cfg.wandb.project,
-            group=f"model:{cfg.models.params.model_name}, dataset:{cfg.dataset.name}",
+            group=f"model:{cfg.models.params.model_name}, dataset:{cfg.dataset.name}-{datetime.now():%H-%M-%S}",
             job_type=cfg.wandb.job_type,
             tags=[cfg.models.params.model_name, cfg.dataset.name],
             name=name,
