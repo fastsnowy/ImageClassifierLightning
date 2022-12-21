@@ -27,7 +27,7 @@ class mymodel(pl.LightningModule):
         self.m_name = m_name
         self.optim_name = optim_name
         self.pretrained = pretrained
-        self.conf_matrix = torchmetrics.ConfusionMatrix(num_class)
+        self.conf_matrix = torchmetrics.ConfusionMatrix(task="multiclass", num_classes=num_class)
 
 
         if self.m_name == "vgg-16":
