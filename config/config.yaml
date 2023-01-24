@@ -1,8 +1,9 @@
 defaults:
-  - wandb: wandb
+  - wandb: default
   - dataset: ???
-  - models: vgg-16
-hydra:
-  sweeper:
-    params:
-      dataset: FastGAN, CFGANwoACL, CFGAN, original
+  - models: ???
+  - trainer: default
+# hydra:
+#   sweeper:
+#     params:
+#       dataset: FastGAN, CFGANwoACL, CFGAN, original
