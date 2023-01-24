@@ -1,8 +1,5 @@
-name: grape-proj
+name: grape-original
 path:
   train: /data/split_dataset/Grape
   test:
   full: /data/split_dataset/Grape
-
-aug:
-  path: /data/aug_dataset/grape/ProjectedGAN/outputs

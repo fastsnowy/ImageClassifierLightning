@@ -3,7 +3,7 @@ defaults:
   - dataset: ???
   - models: ???
   - trainer: default
-# hydra:
-#   sweeper:
-#     params:
-#       dataset: FastGAN, CFGANwoACL, CFGAN, original
+
+hydra:
+  run:
+    dir: /saves/7422526/outputs/classifier/${now:%Y-%m-%d}/${now:%H-%M-%S}

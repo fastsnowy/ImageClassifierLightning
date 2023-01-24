@@ -1,2 +1,3 @@
 augment: True
 num_class: 4
+save_dir: /saves/7422526/outputs/classifier
