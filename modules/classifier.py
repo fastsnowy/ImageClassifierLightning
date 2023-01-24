@@ -26,16 +26,13 @@ class mymodel(pl.LightningModule):
         self.m_name = m_name
         self.optim_name = optim_name
         self.pretrained = pretrained
-        self.conf_matrix = torchmetrics.ConfusionMatrix(
-            task="multiclass", num_classes=num_class
-        )
 
         if self.m_name == "vgg-16":
             # vgg16
             self.model = timm.create_model(
                 "vgg16",
                 pretrained=self.pretrained,
-                num_classses=self.hparams.num_class,
+                num_classes=self.hparams.num_class,
             )
 
         elif self.m_name == "resnet-18":
@@ -43,21 +40,21 @@ class mymodel(pl.LightningModule):
             self.model = timm.create_model(
                 "resnet18",
                 pretrained=self.pretrained,
-                num_classses=self.hparams.num_class,
+                num_classes=self.hparams.num_class,
             )
 
         elif self.m_name == "resnet-50":
             self.model = timm.create_model(
                 "resnet50",
                 pretrained=self.pretrained,
-                num_classses=self.hparams.num_class,
+                num_classes=self.hparams.num_class,
             )
 
         elif self.m_name == "mobilenetv2":
             self.model = timm.create_model(
                 "mobilenetv2_100",
                 pretrained=self.pretrained,
-                num_classses=self.hparams.num_class,
+                num_classes=self.hparams.num_class,
             )
         elif self.m_name == "efficientnet_b0":
             self.model = timm.create_model(
@@ -76,6 +73,10 @@ class mymodel(pl.LightningModule):
 
         # loss
         self.loss_module = nn.CrossEntropyLoss()
+
+    def cross_entropy_loss(y_hat, y):
+        loss = nn.CrossEntropyLoss()
+        return loss(y_hat, y)
 
     def forward(self, x):
         x = self.model(x)
@@ -131,7 +132,7 @@ class mymodel(pl.LightningModule):
         avg_loss = torch.stack([x["loss/val_loss"] for x in outputs]).mean()
         avg_acc = torch.stack([x["accuracy/val_acc"] for x in outputs]).mean()
         self.log(
-            "avg_loss",
+            "loss/avg_loss",
             avg_loss,
             on_step=False,
             on_epoch=True,
@@ -178,20 +179,19 @@ class mymodel(pl.LightningModule):
         }
 
     def test_epoch_end(self, outputs) -> None:
-        global sum_matrix
         preds = torch.cat([x["raw/preds"] for x in outputs])
         targets = torch.cat([x["raw/targets"] for x in outputs])
         avg_loss = torch.stack([x["loss/test_loss"] for x in outputs]).mean()
         avg_acc = torch.stack([x["accuracy/test_acc"] for x in outputs]).mean()
-        mat = self.conf_matrix(preds, targets)
 
-        wandb.log(
+        preds_label = torch.argmax(preds, dim=1)
+        print("target", targets.size())
+        self.logger.experiment.log(
             {
-                "metrics/confusion_matrix",
-                wandb.plot.confusion_matrix(
+                "metrics/confusion_matrix": wandb.plot.confusion_matrix(
                     probs=None,
-                    y_true=targets,
-                    preds=preds,
+                    y_true=targets.cpu().numpy(),
+                    preds=preds_label.cpu().numpy(),
                 ),
             }
         )

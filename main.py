@@ -27,14 +27,15 @@ data_transforms = {
         [
             transforms.Resize(224),
             transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     ),
     "valid": transforms.Compose(
         [
             transforms.Resize((224, 224)),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     ),
 }
@@ -61,14 +62,21 @@ class MySubset(torch.utils.data.Dataset):
 def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.models.params.seed)
     kf = KFold(n_splits=5, shuffle=True, random_state=2023)
-    full_dataset = ImageFolder(cfg.data.path.full, transform=data_transforms["valid"])
+    full_dataset = ImageFolder(cfg.dataset.path.full)
     train_dataset, test_dataset = udata.random_split(
-        full_dataset, [[0.9, 0.1]], generator=torch.Generator().manual_seed(2023)
+        full_dataset, [0.9, 0.1], generator=torch.Generator().manual_seed(2023)
     )
 
     if cfg.trainer.augment:
-        augment_dataset = ImageFolder(cfg.data.aug.path)
+        print("augment dataset concatting")
+        augment_dataset = ImageFolder(cfg.dataset.aug.path)
         train_dataset = udata.ConcatDataset([train_dataset, augment_dataset])
+
+    test_dataset = MySubset(
+        test_dataset,
+        list(range(0, len(test_dataset))),
+        transform=data_transforms["valid"],
+    )
 
     test_loader = DataLoader(
         test_dataset,
@@ -77,9 +85,14 @@ def main(cfg: DictConfig) -> None:
         pin_memory=True,
         num_workers=8,
     )
-
+    current_time = datetime.now()
+    save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(kf.split(train_dataset)):
+
+        experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
+        save_path = f"{save_dir}/{experiment_name}"
+        os.makedirs(save_path, exist_ok=True)
         net = mymodel(
             batch_size=cfg.models.params.batch_size,
             num_class=cfg.trainer.num_class,
@@ -87,29 +100,27 @@ def main(cfg: DictConfig) -> None:
             optim_name=cfg.models.params.optim_name,
             optim_hparams=cfg.models.optim_params,
         )
-        experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
-        save_path = experiment_name
-        os.makedirs(save_path, exist_ok=True)
 
         # setting callbacks
         ckptCallback = ModelCheckpoint(
-            monitor="val_loss",
+            monitor="loss/val_loss",
             mode="min",
             dirpath=save_path,
             filename="{epoch}--{val_loss:.3f}",
         )
-        earlyStoppingCallback = EarlyStopping(monitor="val_loss", patience=5)
+        earlyStoppingCallback = EarlyStopping(monitor="loss/val_loss", patience=5)
 
         # setting logger
         wandb_logger = WandbLogger(
+            save_dir=save_path,
             project=cfg.wandb.project,
-            group=f"model:{cfg.models.params.model_name}, dataset:{cfg.dataset.name}-{datetime.now():%H-%M-%S}",
+            group=f"model--{cfg.models.params.model_name}--dataset--{cfg.dataset.name}",
             job_type=cfg.wandb.job_type,
             tags=[cfg.models.params.model_name, cfg.dataset.name],
             name=experiment_name,
         )
-        d_train = MySubset(train_dataset, train_idx, data_transforms["train"])
-        d_val = MySubset(train_dataset, val_idx, data_transforms["valid"])
+        d_train = MySubset(train_dataset, train_idx, transform=data_transforms["train"])
+        d_val = MySubset(train_dataset, val_idx, transform=data_transforms["valid"])
         train_loader = DataLoader(
             d_train,
             cfg.models.params.batch_size,
@@ -140,10 +151,8 @@ def main(cfg: DictConfig) -> None:
         trainer.fit(net, train_loader, val_loader)
         trainer.test(net, test_loader, "best")
         del net
-        if fold != 4:
-            wandb.finish()
-        else:
-            wandb.finish()
+        del trainer
+        wandb.finish()
     return None
 
 
