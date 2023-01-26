@@ -71,12 +71,9 @@ class mymodel(pl.LightningModule):
         else:
             assert False, f'不明なmodelです: "{self.m_name}"'
 
-        # loss
-        self.loss_module = nn.CrossEntropyLoss()
-
     def cross_entropy_loss(y_hat, y):
-        loss = nn.CrossEntropyLoss()
-        return loss(y_hat, y)
+        loss = F.cross_entropy(y_hat, y)
+        return loss
 
     def forward(self, x):
         x = self.model(x)
@@ -85,7 +82,7 @@ class mymodel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         imgs, labels = batch
         preds = self.model(imgs)
-        loss = self.loss_module(preds, labels)
+        loss = self.cross_entropy_loss(preds, labels)
         acc = (preds.argmax(dim=-1) == labels).float().mean()
 
         self.log("accuracy/train_acc", acc, on_step=False, on_epoch=True)
