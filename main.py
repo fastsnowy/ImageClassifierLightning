@@ -1,5 +1,5 @@
 import os
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 import torch
 import pytorch_lightning as pl
 from torchvision.datasets import ImageFolder
@@ -61,16 +61,24 @@ class MySubset(torch.utils.data.Dataset):
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.models.params.seed)
-    kf = KFold(n_splits=5, shuffle=True, random_state=2023)
+    kf = KFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
     full_dataset = ImageFolder(cfg.dataset.path.full)
     train_dataset, test_dataset = udata.random_split(
-        full_dataset, [0.9, 0.1], generator=torch.Generator().manual_seed(2023)
+        full_dataset,
+        [0.9, 0.1],
+        generator=torch.Generator().manual_seed(cfg.models.params.seed),
     )
 
-    if cfg.trainer.augment:
+    if cfg.dataset.aug:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(cfg.dataset.aug.path)
         train_dataset = udata.ConcatDataset([train_dataset, augment_dataset])
+
+    # sKfold用のラベル
+    train_dataset_label = []
+    for idx in range(len(train_dataset)):
+        train_dataset_label.append(train_dataset[idx][1])
 
     test_dataset = MySubset(
         test_dataset,
@@ -88,7 +96,9 @@ def main(cfg: DictConfig) -> None:
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
     # K fold cross-validation (K=5)
-    for fold, (train_idx, val_idx) in enumerate(kf.split(train_dataset)):
+    for fold, (train_idx, val_idx) in enumerate(
+        skf.split(train_dataset, train_dataset_label)
+    ):
 
         experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
         save_path = f"{save_dir}/{experiment_name}"
@@ -108,7 +118,11 @@ def main(cfg: DictConfig) -> None:
             dirpath=save_path,
             filename="{epoch}--{val_loss:.3f}",
         )
-        earlyStoppingCallback = EarlyStopping(monitor="loss/val_loss", patience=5)
+        earlyStoppingCallback = EarlyStopping(
+            monitor="loss/val_loss",
+            patience=3,
+            mode="min",
+        )
 
         # setting logger
         wandb_logger = WandbLogger(
@@ -141,7 +155,7 @@ def main(cfg: DictConfig) -> None:
             logger=[wandb_logger],
             callbacks=[
                 earlyStoppingCallback,
-                ckptCallback,
+                # ckptCallback,
                 RichModelSummary(),
                 RichProgressBar(),
             ],
