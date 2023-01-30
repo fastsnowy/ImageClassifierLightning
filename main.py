@@ -63,14 +63,18 @@ def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.models.params.seed)
     kf = KFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
-    full_dataset = ImageFolder(cfg.dataset.path.full)
-    train_dataset, test_dataset = udata.random_split(
-        full_dataset,
-        [0.9, 0.1],
-        generator=torch.Generator().manual_seed(cfg.models.params.seed),
-    )
+    if cfg.dataset.path.full is not None:
+        full_dataset = ImageFolder(cfg.dataset.path.full)
+        train_dataset, test_dataset = udata.random_split(
+            full_dataset,
+            [0.9, 0.1],
+            generator=torch.Generator().manual_seed(cfg.models.params.seed),
+        )
+    else:
+        train_dataset = ImageFolder(cfg.dataset.path.train)
+        test_dataset = ImageFolder(cfg.dataset.path.test)
 
-    if cfg.dataset.aug:
+    if cfg.dataset.aug is not None:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(cfg.dataset.aug.path)
         train_dataset = udata.ConcatDataset([train_dataset, augment_dataset])
@@ -82,7 +86,7 @@ def main(cfg: DictConfig) -> None:
 
     test_dataset = MySubset(
         test_dataset,
-        list(range(0, len(test_dataset))),
+        list(range(len(test_dataset))),
         transform=data_transforms["valid"],
     )
 
@@ -95,6 +99,7 @@ def main(cfg: DictConfig) -> None:
     )
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
+
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(
         skf.split(train_dataset, train_dataset_label)
@@ -120,7 +125,7 @@ def main(cfg: DictConfig) -> None:
         )
         earlyStoppingCallback = EarlyStopping(
             monitor="loss/val_loss",
-            patience=3,
+            patience=5,
             mode="min",
         )
 
@@ -149,6 +154,10 @@ def main(cfg: DictConfig) -> None:
             pin_memory=True,
             num_workers=8,
         )
+        print(f"train+val dataset size: {len(train_dataset)}")
+        print(f"train dataset size: {len(d_train)}")
+        print(f"val dataset size: {len(d_val)}")
+        print(f"test dataset size: {len(test_dataset)}")
 
         trainer = pl.Trainer(
             max_epochs=cfg.models.params.epochs,
