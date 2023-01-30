@@ -85,7 +85,7 @@ class mymodel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.formard(x)
+        y_hat = self.forward(x)
         train_loss = self.cross_entropy_loss(y_hat, y)
         self.train_acc(y_hat, y)
         self.log_dict(
@@ -121,21 +121,6 @@ class mymodel(pl.LightningModule):
             "accuracy/val_acc": self.val_acc,
         }
 
-    def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["loss/val_loss"] for x in outputs]).mean()
-        avg_acc = torch.stack([x["accuracy/val_acc"] for x in outputs]).mean()
-        self.log_dict(
-            {
-                "loss/avg_loss": avg_loss,
-                "accuracy/avg_acc": avg_acc,
-            },
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-        return {"loss/avg_val_loss": avg_loss, "accuracy/val_acc": avg_acc}
-
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.forward(x)
@@ -162,8 +147,6 @@ class mymodel(pl.LightningModule):
     def test_epoch_end(self, outputs) -> None:
         preds = torch.cat([x["raw/preds"] for x in outputs])
         targets = torch.cat([x["raw/targets"] for x in outputs])
-        avg_loss = torch.stack([x["loss/test_loss"] for x in outputs]).mean()
-        avg_acc = torch.stack([x["accuracy/test_acc"] for x in outputs]).mean()
 
         preds_label = torch.argmax(preds, dim=1)
         print("target", targets.size())
@@ -178,8 +161,6 @@ class mymodel(pl.LightningModule):
         )
 
         return {
-            "loss/avg_test_loss": avg_loss,
-            "accuracy/test_acc": avg_acc,
             "raw/preds": preds,
             "raw/targets": targets,
         }
