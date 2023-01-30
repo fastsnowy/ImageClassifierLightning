@@ -8,5 +8,5 @@ params:
   pretrained: True
 
 optim_params:
-  lr: 0.001
+  lr: 0.01
   momentum: 0.9

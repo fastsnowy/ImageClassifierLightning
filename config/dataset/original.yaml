@@ -1,4 +1,6 @@
 name: original
 path:
-  train: /workspace/data/RiceLeafSplit/train
-  test: /workspace/data/RiceLeafSplit/test
+  train: /data/RiceLeafSplit/train
+  test: /data/RiceLeafSplit/test
+  full:
+aug:
