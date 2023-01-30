@@ -4,7 +4,7 @@ params:
   batch_size: 64
   num_class: 4
   epochs: 40
-  seed: 42
+  seed: 2023
 
 optim_params:
   lr: 0.01

@@ -1,0 +1,6 @@
+name: tomato-original
+path:
+  train: /data/split_dataset/Grape
+  test:
+  full: /data/split_dataset/Tomato
+aug:
