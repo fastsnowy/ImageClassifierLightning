@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 import torchmetrics
 import pytorch_lightning as pl
 import torch.nn as nn
@@ -26,6 +27,9 @@ class mymodel(pl.LightningModule):
         self.m_name = m_name
         self.optim_name = optim_name
         self.pretrained = pretrained
+        self.train_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_class)
+        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_class)
+        self.test_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_class)
 
         if self.m_name == "vgg-16":
             # vgg16
@@ -71,7 +75,7 @@ class mymodel(pl.LightningModule):
         else:
             assert False, f'不明なmodelです: "{self.m_name}"'
 
-    def cross_entropy_loss(y_hat, y):
+    def cross_entropy_loss(self, y_hat, y):
         loss = F.cross_entropy(y_hat, y)
         return loss
 
@@ -80,39 +84,33 @@ class mymodel(pl.LightningModule):
         return x
 
     def training_step(self, batch, batch_idx):
-        imgs, labels = batch
-        preds = self.model(imgs)
-        loss = self.cross_entropy_loss(preds, labels)
-        acc = (preds.argmax(dim=-1) == labels).float().mean()
-
-        self.log("accuracy/train_acc", acc, on_step=False, on_epoch=True)
-        self.log(
-            "loss/train_loss",
-            loss,
+        x, y = batch
+        y_hat = self.formard(x)
+        train_loss = self.cross_entropy_loss(y_hat, y)
+        self.train_acc(y_hat, y)
+        self.log_dict(
+            {
+                "accuracy/train_acc": self.train_acc,
+                "loss/train_loss": train_loss,
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
         )
-        return loss
+
+        return train_loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        out = self.forward(x)
-        val_loss = F.cross_entropy(out, y)
-        out_label = torch.argmax(out, dim=1)
-        acc = torch.sum(y == out_label) * 1.0 / len(y)
-        self.log(
-            "loss/val_loss",
-            val_loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-        self.log(
-            "accuracy/val_acc",
-            acc,
+        y_hat = self.forward(x)
+        val_loss = self.cross_entropy_loss(y_hat, y)
+        self.val_acc(y_hat, y)
+        self.log_dict(
+            {
+                "loss/val_loss": val_loss,
+                "accuracy/val_acc": self.val_acc,
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -120,25 +118,17 @@ class mymodel(pl.LightningModule):
         )
         return {
             "loss/val_loss": val_loss,
-            "accuracy/val_acc": acc,
-            "raw/out": out,
-            "raw/targets": y,
+            "accuracy/val_acc": self.val_acc,
         }
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["loss/val_loss"] for x in outputs]).mean()
         avg_acc = torch.stack([x["accuracy/val_acc"] for x in outputs]).mean()
-        self.log(
-            "loss/avg_loss",
-            avg_loss,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-        self.log(
-            "accuracy/avg_acc",
-            avg_acc,
+        self.log_dict(
+            {
+                "loss/avg_loss": avg_loss,
+                "accuracy/avg_acc": avg_acc,
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
@@ -148,30 +138,24 @@ class mymodel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        out = self.forward(x)
-        test_loss = F.cross_entropy(out, y)
-        out_label = torch.argmax(out, dim=1)
-        acc = torch.sum(y == out_label) * 1.0 / len(y)
-        self.log(
-            "loss/test_loss",
-            test_loss,
+        y_hat = self.forward(x)
+        test_loss = self.cross_entropy_loss(y_hat, y)
+        self.test_acc(y_hat, y)
+        self.log_dict(
+            {
+                "loss/test_loss": test_loss,
+                "accuracy/test_acc": self.test_acc,
+            },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
             logger=True,
         )
-        self.log(
-            "accuracy/test_acc",
-            acc,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
+
         return {
             "loss/test_loss": test_loss,
-            "accuracy/test_acc": acc,
-            "raw/preds": out,
+            "accuracy/test_acc": self.test_acc,
+            "raw/preds": y_hat,
             "raw/targets": y,
         }
 
