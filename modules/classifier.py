@@ -79,8 +79,10 @@ class mymodel(pl.LightningModule):
         loss = F.cross_entropy(y_hat, y)
         return loss
 
-    def forward(self, x):
+    def forward(self, x: Tensor):
+        eps = 1e-12
         x = self.model(x)
+        x.add(eps)
         return x
 
     def training_step(self, batch, batch_idx):
