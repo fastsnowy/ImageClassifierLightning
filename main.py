@@ -21,11 +21,12 @@ import hydra
 from omegaconf import DictConfig
 
 from datetime import datetime
+from rich import print
 
 data_transforms = {
     "train": transforms.Compose(
         [
-            transforms.Resize(224),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
@@ -34,6 +35,13 @@ data_transforms = {
         [
             transforms.Resize((224, 224)),
             transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ]
+    ),
+    "test": transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
@@ -64,40 +72,68 @@ def main(cfg: DictConfig) -> None:
     kf = KFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
 
-    if cfg.dataset.path.full is not None:
-        full_dataset = ImageFolder(cfg.dataset.path.full)
-        train_dataset, test_dataset = udata.random_split(
-            full_dataset,
-            [0.9, 0.1],
-            generator=torch.Generator().manual_seed(cfg.models.params.seed),
-        )
-    else:
-        print("load")
-        train_dataset = ImageFolder(cfg.dataset.path.train)
-        test_dataset = ImageFolder(cfg.dataset.path.test)
+    print("split dataset load")
+    train_all_dataset = ImageFolder(
+        cfg.dataset.path.train, transform=data_transforms["train"]
+    )
+    test_dataset = ImageFolder(
+        cfg.dataset.path.test, transform=data_transforms["valid"]
+    )
 
     if cfg.dataset.aug is not None:
         print("augment dataset concatting")
-        augment_dataset = ImageFolder(cfg.dataset.aug.path)
-        train_dataset = udata.ConcatDataset([train_dataset, augment_dataset])
+        augment_dataset = ImageFolder(
+            cfg.dataset.aug.path, transform=data_transforms["train"]
+        )
+        train_all_dataset = udata.ConcatDataset([train_all_dataset, augment_dataset])
 
     # sKfold用のラベル
-    train_dataset_label = []
+    train_all_dataset_label = []
     for idx in range(len(train_dataset)):
-        train_dataset_label.append(train_dataset[idx][1])
+        train_all_dataset_label.append(train_dataset[idx][1])
 
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
 
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(
-        kf.split(train_dataset)
-        # skf.split(train_dataset, train_dataset_label)
+        kf.split(train_all_dataset)
+        # skf.split(train_all_dataset, train_all_dataset_label)
     ):
+        # データセットの設定
+        train_dataset = udata.Subset(train_all_dataset, train_idx)
+        valid_dataset = udata.Subset(train_all_dataset, val_idx)
 
+        # データローダーの設定
+
+        train_loader = DataLoader(
+            train_dataset,
+            cfg.models.params.batch_size,
+            shuffle=False,
+            pin_memory=True,
+            num_workers=8,
+        )
+        val_loader = DataLoader(
+            valid_dataset,
+            cfg.models.params.batch_size,
+            shuffle=False,
+            pin_memory=True,
+            num_workers=8,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=cfg.models.params.batch_size,
+            shuffle=False,
+            pin_memory=True,
+            num_workers=8,
+        )
+
+        # 保存先の設定
         experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
         save_path = f"{save_dir}/{experiment_name}"
         os.makedirs(save_path, exist_ok=True)
+
+        # モデルの構築
         net = mymodel(
             batch_size=cfg.models.params.batch_size,
             num_class=cfg.trainer.num_class,
@@ -128,41 +164,8 @@ def main(cfg: DictConfig) -> None:
             tags=[cfg.models.params.model_name, cfg.dataset.name],
             name=experiment_name,
         )
-        d_train = MySubset(train_dataset, train_idx, transform=data_transforms["train"])
-        d_val = MySubset(train_dataset, val_idx, transform=data_transforms["valid"])
-        # test dataset loaderの作成
-        d_test = MySubset(
-            test_dataset,
-            list(range(len(test_dataset))),
-            transform=data_transforms["valid"],
-        )
 
-        train_loader = DataLoader(
-            d_train,
-            cfg.models.params.batch_size,
-            shuffle=False,
-            pin_memory=True,
-            num_workers=8,
-        )
-        val_loader = DataLoader(
-            d_val,
-            cfg.models.params.batch_size,
-            shuffle=False,
-            pin_memory=True,
-            num_workers=8,
-        )
-        test_loader = DataLoader(
-            d_test,
-            batch_size=cfg.models.params.batch_size,
-            shuffle=False,
-            pin_memory=True,
-            num_workers=8,
-        )
-        print(f"train+val dataset size: {len(train_dataset)}")
-        print(f"train dataset size: {len(d_train)}")
-        print(f"val dataset size: {len(d_val)}")
-        print(f"test dataset size: {len(test_dataset)}")
-
+        # trainerの設定
         trainer = pl.Trainer(
             max_epochs=cfg.models.params.epochs,
             logger=[wandb_logger],
@@ -175,6 +178,7 @@ def main(cfg: DictConfig) -> None:
             devices="auto",
             accelerator="gpu",
         )
+        # 学習
         trainer.fit(
             model=net,
             train_dataloaders=train_loader,
