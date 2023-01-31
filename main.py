@@ -16,27 +16,29 @@ from pytorch_lightning.callbacks import (
 )
 
 import wandb
-from modules.classifier import mymodel
+from modules.classifier import ClassifierModel
 import hydra
 from omegaconf import DictConfig
 
 from datetime import datetime
 from rich import print
 
+
 data_transforms = {
     "train": transforms.Compose(
         [
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            transforms.Normalize([0.4782, 0.5025, 0.4018], [0.2095, 0.1745, 0.2315]),
         ]
     ),
     "valid": transforms.Compose(
         [
-            transforms.Resize((224, 224)),
+            transforms.Resize(224),
+            transforms.RandomHorizontalFlip(),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            transforms.Normalize([0.4782, 0.5025, 0.4018], [0.2095, 0.1745, 0.2315]),
         ]
     ),
     "test": transforms.Compose(
@@ -89,8 +91,8 @@ def main(cfg: DictConfig) -> None:
 
     # sKfold用のラベル
     train_all_dataset_label = []
-    for idx in range(len(train_dataset)):
-        train_all_dataset_label.append(train_dataset[idx][1])
+    for idx in range(len(train_all_dataset)):
+        train_all_dataset_label.append(train_all_dataset[idx][1])
 
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
@@ -134,12 +136,10 @@ def main(cfg: DictConfig) -> None:
         os.makedirs(save_path, exist_ok=True)
 
         # モデルの構築
-        net = mymodel(
-            batch_size=cfg.models.params.batch_size,
-            num_class=cfg.trainer.num_class,
-            m_name=cfg.models.params.model_name,
-            optim_name=cfg.models.params.optim_name,
-            optim_hparams=cfg.models.optim_params,
+        net = ClassifierModel(
+            cfg,
+            cfg.trainer.num_class,
+            cfg.models.params.model_name,
         )
 
         # setting callbacks
@@ -151,8 +151,9 @@ def main(cfg: DictConfig) -> None:
         )
         earlyStoppingCallback = EarlyStopping(
             monitor="loss/val_loss",
-            patience=5,
+            patience=3,
             mode="min",
+            min_delta=0.01,
         )
 
         # setting logger
@@ -167,16 +168,17 @@ def main(cfg: DictConfig) -> None:
 
         # trainerの設定
         trainer = pl.Trainer(
-            max_epochs=cfg.models.params.epochs,
+            max_epochs=cfg.trainer.max_epochs,
             logger=[wandb_logger],
             callbacks=[
                 earlyStoppingCallback,
-                # ckptCallback,
+                ckptCallback,
                 RichModelSummary(),
                 RichProgressBar(),
             ],
             devices="auto",
             accelerator="gpu",
+            gradient_clip_val=0.5,
         )
         # 学習
         trainer.fit(
