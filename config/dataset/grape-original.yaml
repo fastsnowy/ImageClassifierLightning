@@ -2,5 +2,4 @@ name: grape-original
 path:
   train: /data/train_test_split/grape/train
   test: /data/train_test_split/grape/test
-  full:
 aug:
