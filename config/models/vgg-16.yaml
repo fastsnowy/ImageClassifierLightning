@@ -1,5 +1,5 @@
 params:
-  model_name: vgg-16
+  model_name: vgg16
   optim_name: SGD
   batch_size: 64
   num_class: 4
