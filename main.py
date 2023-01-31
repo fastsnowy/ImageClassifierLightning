@@ -63,6 +63,7 @@ def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.models.params.seed)
     kf = KFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
+
     if cfg.dataset.path.full is not None:
         full_dataset = ImageFolder(cfg.dataset.path.full)
         train_dataset, test_dataset = udata.random_split(
@@ -71,6 +72,7 @@ def main(cfg: DictConfig) -> None:
             generator=torch.Generator().manual_seed(cfg.models.params.seed),
         )
     else:
+        print("load")
         train_dataset = ImageFolder(cfg.dataset.path.train)
         test_dataset = ImageFolder(cfg.dataset.path.test)
 
@@ -84,25 +86,13 @@ def main(cfg: DictConfig) -> None:
     for idx in range(len(train_dataset)):
         train_dataset_label.append(train_dataset[idx][1])
 
-    test_dataset = MySubset(
-        test_dataset,
-        list(range(len(test_dataset))),
-        transform=data_transforms["valid"],
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.models.params.batch_size,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=8,
-    )
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
 
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(
-        skf.split(train_dataset, train_dataset_label)
+        kf.split(train_dataset)
+        # skf.split(train_dataset, train_dataset_label)
     ):
 
         experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
@@ -140,16 +130,30 @@ def main(cfg: DictConfig) -> None:
         )
         d_train = MySubset(train_dataset, train_idx, transform=data_transforms["train"])
         d_val = MySubset(train_dataset, val_idx, transform=data_transforms["valid"])
+        # test dataset loaderの作成
+        d_test = MySubset(
+            test_dataset,
+            list(range(len(test_dataset))),
+            transform=data_transforms["valid"],
+        )
+
         train_loader = DataLoader(
             d_train,
             cfg.models.params.batch_size,
-            shuffle=True,
+            shuffle=False,
             pin_memory=True,
             num_workers=8,
         )
         val_loader = DataLoader(
             d_val,
             cfg.models.params.batch_size,
+            shuffle=False,
+            pin_memory=True,
+            num_workers=8,
+        )
+        test_loader = DataLoader(
+            d_test,
+            batch_size=cfg.models.params.batch_size,
             shuffle=False,
             pin_memory=True,
             num_workers=8,
@@ -171,7 +175,11 @@ def main(cfg: DictConfig) -> None:
             devices="auto",
             accelerator="gpu",
         )
-        trainer.fit(net, train_loader, val_loader)
+        trainer.fit(
+            model=net,
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader,
+        )
         trainer.test(net, test_loader, "best")
         del net
         del trainer
