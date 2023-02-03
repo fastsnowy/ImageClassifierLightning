@@ -160,7 +160,7 @@ def main(cfg: DictConfig) -> None:
         wandb_logger = WandbLogger(
             save_dir=save_path,
             project=cfg.wandb.project,
-            group=f"model--{cfg.models.params.model_name}--dataset--{cfg.dataset.name}",
+            group=f"{current_time:%m-%d}--model--{cfg.models.params.model_name}--dataset--{cfg.dataset.name}",
             job_type=cfg.wandb.job_type,
             tags=[cfg.models.params.model_name, cfg.dataset.name],
             name=experiment_name,
