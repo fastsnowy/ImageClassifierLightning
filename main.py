@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import (
     RichModelSummary,
 )
 
+import numpy as np
 import wandb
 from modules.classifier import ClassifierModel
 import hydra
@@ -68,6 +69,28 @@ class MySubset(torch.utils.data.Dataset):
         return len(self.indices)
 
 
+def setup_dataloader(dataset, train_idx, val_idx, batch_size):
+    train_sampler = udata.SubsetRandomSampler(train_idx)
+    val_sampler = udata.SubsetRandomSampler(val_idx)
+    train_loader = DataLoader(
+        dataset,
+        batch_size,
+        shuffle=False,
+        pin_memory=True,
+        num_workers=8,
+        sampler=train_sampler,
+    )
+    val_loader = DataLoader(
+        dataset,
+        batch_size,
+        shuffle=False,
+        pin_memory=True,
+        num_workers=8,
+        sampler=val_sampler,
+    )
+    return train_loader, val_loader
+
+
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.models.params.seed)
@@ -77,9 +100,6 @@ def main(cfg: DictConfig) -> None:
     print("split dataset load")
     train_all_dataset = ImageFolder(
         cfg.dataset.path.train, transform=data_transforms["train"]
-    )
-    test_dataset = ImageFolder(
-        cfg.dataset.path.test, transform=data_transforms["valid"]
     )
 
     if cfg.dataset.aug is not None:
@@ -99,28 +119,20 @@ def main(cfg: DictConfig) -> None:
 
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(
-        kf.split(train_all_dataset)
+        kf.split(np.arange(len(train_all_dataset)))
         # skf.split(train_all_dataset, train_all_dataset_label)
     ):
         # データセットの設定
-        train_dataset = udata.Subset(train_all_dataset, train_idx)
-        valid_dataset = udata.Subset(train_all_dataset, val_idx)
+        test_dataset = ImageFolder(
+            cfg.dataset.path.test, transform=data_transforms["valid"]
+        )
 
         # データローダーの設定
-
-        train_loader = DataLoader(
-            train_dataset,
+        train_loader, val_loader = setup_dataloader(
+            train_all_dataset,
+            train_idx,
+            val_idx,
             cfg.models.params.batch_size,
-            shuffle=False,
-            pin_memory=True,
-            num_workers=8,
-        )
-        val_loader = DataLoader(
-            valid_dataset,
-            cfg.models.params.batch_size,
-            shuffle=False,
-            pin_memory=True,
-            num_workers=8,
         )
         test_loader = DataLoader(
             test_dataset,

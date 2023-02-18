@@ -16,7 +16,7 @@ class ClassifierModel(pl.LightningModule):
         self.save_hyperparameters()
         self.model = timm.create_model(
             model_name=model_name,
-            pretrained=True,
+            pretrained=False,
             num_classes=num_classes,
         )
         self.train_acc = torchmetrics.Accuracy(
@@ -117,6 +117,6 @@ class ClassifierModel(pl.LightningModule):
         }
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
+        optimizer = torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
         # optimizer = torch.optim.Adam(self.parameters(), lr=0.02)
         return optimizer
