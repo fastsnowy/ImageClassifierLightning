@@ -1,11 +1,15 @@
 import os
 import torch
+import random
 from torchvision.datasets import ImageFolder
 from torchvision.utils import save_image
 from torch.utils import data as udata
 from rich import print
 from tqdm.rich import tqdm
 import typer
+from torchvision import transforms
+
+transform = transforms.Compose([transforms.ToTensor()])
 
 
 def num_limit_and_output_dataset(
@@ -16,23 +20,27 @@ def num_limit_and_output_dataset(
     test_rate: float = 0.1,
     random_seed: int = 2023,
 ):
-    sampler_idx = [i for i in range(gen_num)]
-    full_dataset = ImageFolder(full_dataset_path)
-    data_sampler = udata.RandomSampler(
-        sampler_idx, generator=torch.Generator().manual_seed(random_seed)
+    full_dataset = ImageFolder(full_dataset_path, transform=transform)
+    classes = full_dataset.classes
+    num_classes = len(classes)
+    indices = []
+    for i in range(num_classes):
+        class_indices = [
+            idx for idx, label in enumerate(full_dataset.targets) if label == i
+        ]
+        random.shuffle(class_indices)
+        class_indices = class_indices[:gen_num]
+        indices += class_indices
+    sampler = torch.utils.data.sampler.SubsetRandomSampler(indices)
+    dataloader = torch.utils.data.DataLoader(
+        full_dataset, sampler=sampler, batch_size=1
     )
-    data_loader = udata.DataLoader(
-        full_dataset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=8,
-        sampler=data_sampler,
-    )
-    for idx, (img, label) in enumerate(tqdm(data_loader)):
-        os.makedirs(f"{output_path}/{label}", exist_ok=True)
-        img.save(f"{output_path}/{label}/image_{idx:03d}.jpg")
 
-    print("test dataset save finished.")
+    for idx, (img, label) in enumerate(tqdm(dataloader)):
+        os.makedirs(f"{output_path}/{label}", exist_ok=True)
+        save_image(img, f"{output_path}/{label}/image_{idx:03d}.jpg")
+
+    print("dataset save finished.")
 
 
 if __name__ == "__main__":
