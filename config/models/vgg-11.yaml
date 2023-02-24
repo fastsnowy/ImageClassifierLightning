@@ -1,7 +1,7 @@
 params:
   model_name: vgg11
   optim_name: SGD
-  batch_size: 64
+  batch_size: 32
   num_class: 4
   epochs: 40
   seed: 2023

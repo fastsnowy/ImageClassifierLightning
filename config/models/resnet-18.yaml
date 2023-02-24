@@ -1,7 +1,7 @@
 params:
   model_name: resnet18
   optim_name: SGD
-  batch_size: 64
+  batch_size: 32
   num_class: 4
   epochs: 40
   seed: 42
