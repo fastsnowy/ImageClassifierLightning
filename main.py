@@ -35,18 +35,11 @@ data_transforms = {
     ),
     "valid": transforms.Compose(
         [
-            transforms.Resize(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.4782, 0.5025, 0.4018], [0.2095, 0.1745, 0.2315]),
-        ]
-    ),
-    "test": transforms.Compose(
-        [
+            # transforms.Resize(224),
+            # transforms.CenterCrop(224),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            transforms.Normalize([0.4782, 0.5025, 0.4018], [0.2095, 0.1745, 0.2315]),
         ]
     ),
 }
@@ -69,9 +62,9 @@ class MySubset(torch.utils.data.Dataset):
         return len(self.indices)
 
 
-def setup_dataloader(dataset, train_idx, val_idx, batch_size):
-    train_sampler = udata.SubsetRandomSampler(train_idx)
-    val_sampler = udata.SubsetRandomSampler(val_idx)
+def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
+    train_sampler = udata.SubsetRandomSampler(train_idx, generator=generator)
+    val_sampler = udata.SubsetRandomSampler(val_idx, generator=generator)
     train_loader = DataLoader(
         dataset,
         batch_size,
@@ -93,9 +86,8 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size):
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
-    pl.seed_everything(cfg.models.params.seed)
-    kf = KFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg.models.params.seed)
+    pl.seed_everything(cfg.trainer.seed)
+    kf = KFold(n_splits=5, shuffle=True, random_state=cfg.trainer.seed)
 
     print("split dataset load")
     train_all_dataset = ImageFolder(
@@ -109,18 +101,12 @@ def main(cfg: DictConfig) -> None:
         )
         train_all_dataset = udata.ConcatDataset([train_all_dataset, augment_dataset])
 
-    # sKfold用のラベル
-    train_all_dataset_label = []
-    for idx in range(len(train_all_dataset)):
-        train_all_dataset_label.append(train_all_dataset[idx][1])
-
     current_time = datetime.now()
     save_dir = f"{cfg.trainer.save_dir}/{current_time:%Y-%m-%d}/{current_time:%H-%M-%S}"
 
     # K fold cross-validation (K=5)
     for fold, (train_idx, val_idx) in enumerate(
         kf.split(np.arange(len(train_all_dataset)))
-        # skf.split(train_all_dataset, train_all_dataset_label)
     ):
         # データセットの設定
         test_dataset = ImageFolder(
@@ -133,6 +119,7 @@ def main(cfg: DictConfig) -> None:
             train_idx,
             val_idx,
             cfg.models.params.batch_size,
+            generator=torch.Generator().manual_seed(cfg.trainer.seed),
         )
         test_loader = DataLoader(
             test_dataset,
@@ -190,7 +177,7 @@ def main(cfg: DictConfig) -> None:
             ],
             devices="auto",
             accelerator="gpu",
-            gradient_clip_val=0.5,
+            # gradient_clip_val=0.5,
         )
         # 学習
         trainer.fit(
