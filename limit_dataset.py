@@ -1,13 +1,14 @@
 import os
-import torch
 import random
+
+import torch
+import typer
+from rich import print
+from torch.utils import data as udata
+from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.utils import save_image
-from torch.utils import data as udata
-from rich import print
 from tqdm.rich import tqdm
-import typer
-from torchvision import transforms
 
 transform = transforms.Compose([transforms.ToTensor()])
 
