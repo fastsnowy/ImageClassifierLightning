@@ -38,8 +38,8 @@ def num_limit_and_output_dataset(
     )
 
     for idx, (img, label) in enumerate(tqdm(dataloader)):
-        os.makedirs(f"{output_path}/{label}", exist_ok=True)
-        save_image(img, f"{output_path}/{label}/image_{idx:03d}.jpg")
+        os.makedirs(f"{output_path}/{label.item()}", exist_ok=True)
+        save_image(img, f"{output_path}/{label.item()}/image_{idx:03d}.jpg")
 
     print("dataset save finished.")
 

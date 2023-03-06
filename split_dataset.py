@@ -10,32 +10,6 @@ from torchvision.utils import save_image
 from tqdm.rich import tqdm
 
 
-def split_and_output_dataset(
-    full_dataset_path: str,
-    output_path: str,
-    train_rate: float = 0.9,
-    test_rate: float = 0.1,
-    random_seed: int = 2023,
-):
-    full_dataset = ImageFolder(full_dataset_path)
-    train_dataset, test_dataset = udata.random_split(
-        full_dataset,
-        [train_rate, test_rate],
-        torch.Generator().manual_seed(random_seed),
-    )
-    print("save test dataset")
-    for idx, (img, label) in enumerate(tqdm(test_dataset)):
-        os.makedirs(f"{output_path}/test/{label}", exist_ok=True)
-        img.save(f"{output_path}/test/{label}/image_{idx:03d}.jpg")
-
-    print("test dataset save finished.")
-    print("save train dataset...")
-    for idx, (img, label) in enumerate(tqdm(train_dataset)):
-        os.makedirs(f"{output_path}/train/{label}", exist_ok=True)
-        img.save(f"{output_path}/train/{label}/image_{idx:03d}.jpg")
-    print("train dataset save finished.")
-
-
 def create_class_balanced_datasets(
     dataset_dir, train_ratio, batch_size, num_workers, seed
 ):
@@ -107,13 +81,13 @@ def split(
 
     print("save train dataset...")
     for idx, (img, label) in enumerate(tqdm(train_loader)):
-        os.makedirs(f"{output_path}/train/{label}", exist_ok=True)
-        save_image(img, f"{output_path}/train/{label}/image_{idx:03d}.jpg")
+        os.makedirs(f"{output_path}/train/{label.item()}", exist_ok=True)
+        save_image(img, f"{output_path}/train/{label.item()}/image_{idx:03d}.jpg")
 
     print("save test dataset...")
     for idx, (img, label) in enumerate(tqdm(test_loader)):
-        os.makedirs(f"{output_path}/test/{label}", exist_ok=True)
-        save_image(img, f"{output_path}/test/{label}/image_{idx:03d}.jpg")
+        os.makedirs(f"{output_path}/test/{label.item()}", exist_ok=True)
+        save_image(img, f"{output_path}/test/{label.item()}/image_{idx:03d}.jpg")
 
 
 if __name__ == "__main__":
