@@ -1,29 +1,27 @@
 import os
-from sklearn.model_selection import KFold, StratifiedKFold
-import torch
-import pytorch_lightning as pl
-from torchvision.datasets import ImageFolder
+from datetime import datetime
 
+import hydra
+import numpy as np
+import pytorch_lightning as pl
+import torch
+import wandb
+from omegaconf import DictConfig
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    ModelCheckpoint,
+    RichModelSummary,
+    RichProgressBar,
+)
+from pytorch_lightning.loggers import WandbLogger
+from rich import print
+from sklearn.model_selection import KFold, StratifiedKFold
 from torch.utils import data as udata
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import (
-    ModelCheckpoint,
-    EarlyStopping,
-    RichProgressBar,
-    RichModelSummary,
-)
+from torchvision.datasets import ImageFolder
 
-import numpy as np
-import wandb
 from modules.classifier import ClassifierModel
-import hydra
-from omegaconf import DictConfig
-
-from datetime import datetime
-from rich import print
-
 
 data_transforms = {
     "train": transforms.Compose(
