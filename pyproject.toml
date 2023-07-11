@@ -14,7 +14,8 @@ dependencies = [
     "torch==1.13.0+cu117",
     "torchmetrics>=1.0.0",
     "timm==0.6.12",
-    "pytorch-lightning==1.8.4.post0",
+    "pytorch-lightning==1.8.6",
+    "typer[all]>=0.7.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
