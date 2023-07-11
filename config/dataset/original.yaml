@@ -1,6 +1,0 @@
-name: original
-path:
-  train: /data/RiceLeafSplit/train
-  test: /data/RiceLeafSplit/test
-  full:
-aug:

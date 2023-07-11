@@ -1,4 +1,0 @@
-name: ProjACL
-path:
-  train: /data/RiceLeaf_DataAugment/ProjACLGAN/outputs
-  test: /data/RiceLeafSplit/test

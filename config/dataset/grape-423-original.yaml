@@ -1,5 +1,0 @@
-name: grape-423-original
-path:
-  train: /data/train_test_split/grape423/train
-  test: /data/train_test_split/grape423/test
-aug:
