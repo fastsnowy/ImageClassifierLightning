@@ -1,11 +1,11 @@
-import torch
-from torch import Tensor
-import torchmetrics
 import pytorch_lightning as pl
+import timm
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import timm
+import torchmetrics
 import wandb
+from torch import Tensor
 
 
 class ClassifierModel(pl.LightningModule):
@@ -96,7 +96,7 @@ class ClassifierModel(pl.LightningModule):
             "raw/targets": y,
         }
 
-    def test_epoch_end(self, outputs) -> None:
+    def test_epoch_end(self, outputs):
         preds = torch.cat([x["raw/preds"] for x in outputs])
         targets = torch.cat([x["raw/targets"] for x in outputs])
 
