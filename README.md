@@ -13,6 +13,12 @@ rye sync
 ```
 
 ## Usage
+### wandb login
+- need wandb account
+```bash
+rye shell
+wandb login
+```
 ### dataset
 copy default.yaml and rename it and edit paths.
 ```bash
