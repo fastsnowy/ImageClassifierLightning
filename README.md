@@ -1,10 +1,11 @@
 # imageclassifierlightning
 
 ## Setup
-
-### Install dependencies
-- [Rye](https://rye-up.com/guide/installation/)
+## prerequisites
 - CUDA11.7.1
+### Install dependencies
+Need to install Rye
+- [Rye](https://rye-up.com/guide/installation/)
 
 ### Install the package
 ```bash
