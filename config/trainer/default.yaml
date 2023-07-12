@@ -2,4 +2,4 @@ augment: True
 num_class: 4
 max_epochs: 20
 seed: 2023
-save_dir: /saves/7422526/outputs/classifier
+save_dir: /path/to/save
