@@ -1,11 +1,9 @@
 import pytorch_lightning as pl
 import timm
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torchmetrics
 import wandb
-from torch import Tensor
 
 
 class ClassifierModel(pl.LightningModule):
@@ -20,11 +18,25 @@ class ClassifierModel(pl.LightningModule):
             num_classes=num_classes,
         )
         self.train_acc = torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes
+            task="multiclass",
+            num_classes=num_classes,
         )
         self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
         self.test_acc = torchmetrics.Accuracy(
-            task="multiclass", num_classes=num_classes
+            task="multiclass",
+            num_classes=num_classes,
+        )
+        self.test_recall = torchmetrics.Recall(
+            task="multiclass",
+            num_classes=num_classes,
+        )
+        self.test_precision = torchmetrics.Precision(
+            task="multiclass",
+            num_classes=num_classes,
+        )
+        self.test_f1 = torchmetrics.F1Score(
+            task="multiclass",
+            num_classes=num_classes,
         )
 
     def forward(self, x):
@@ -97,9 +109,12 @@ class ClassifierModel(pl.LightningModule):
         }
 
     def test_epoch_end(self, outputs):
-        preds = torch.cat([x["raw/preds"] for x in outputs])
-        targets = torch.cat([x["raw/targets"] for x in outputs])
+        preds = torch.cat([x["raw/preds"] for x in outputs])  # y_hat
+        targets = torch.cat([x["raw/targets"] for x in outputs])  # y
 
+        test_recall = self.test_recall(preds, targets)
+        test_f1 = self.test_f1(preds, targets)
+        test_precision = self.test_precision(preds, targets)
         preds_label = torch.argmax(preds, dim=1)
         self.logger.experiment.log(
             {
@@ -108,6 +123,14 @@ class ClassifierModel(pl.LightningModule):
                     y_true=targets.cpu().numpy(),
                     preds=preds_label.cpu().numpy(),
                 ),
+            }
+        )
+
+        self.log_dict(
+            {
+                "metrics/test_recall": test_recall,
+                "metrics/test_f1": test_f1,
+                "metrics/test_precision": test_precision,
             }
         )
 
