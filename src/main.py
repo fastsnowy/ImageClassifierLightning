@@ -15,7 +15,7 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import WandbLogger
 from rich import print
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import KFold
 from torch.utils import data as udata
 from torch.utils.data import DataLoader
 from torchvision import transforms
