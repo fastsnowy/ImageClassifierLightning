@@ -2,7 +2,6 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
-import wandb
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     MulticlassAccuracy,
@@ -83,35 +82,16 @@ class ClassifierModel(pl.LightningModule):
         y_hat = self.forward(x)
         test_loss = F.cross_entropy(y_hat, y)
         self.test_metrics.update(y_hat, y)
-        self.log({"loss/test_loss": test_loss})
+        self.log("loss/test_loss", test_loss)
         return {
             "raw/preds": y_hat,
             "raw/targets": y,
         }
 
-    def on_test_epoch_end(self, outputs):
-        preds = torch.cat([x["raw/preds"] for x in outputs])  # y_hat
-        preds_label = torch.argmax(preds, dim=1)
-        targets = torch.cat([x["raw/targets"] for x in outputs])  # y
-
+    def on_test_epoch_end(self):
         test_output = self.test_metrics.compute()
-        self.logger.experiment.log(
-            {
-                "metrics/confusion_matrix": wandb.plot.confusion_matrix(
-                    probs=None,
-                    y_true=targets.cpu().numpy(),
-                    preds=preds_label.cpu().numpy(),
-                ),
-            }
-        )
-
         self.log_dict(test_output)
         self.test_metrics.reset()
-
-        return {
-            "raw/preds": preds,
-            "raw/targets": targets,
-        }
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
