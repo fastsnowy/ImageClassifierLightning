@@ -1,5 +1,8 @@
-augment: True
+augment: False
+pretrained: False
+batch_size: 32
+num_workers: 8
 num_class: 4
 max_epochs: 20
 seed: 2023
-save_dir: /path/to/save
+save_dir: /workspace/outputs

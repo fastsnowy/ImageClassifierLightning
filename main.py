@@ -6,13 +6,13 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import wandb
-from omegaconf import DictConfig
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
     RichModelSummary,
     RichProgressBar,
 )
+from config import Config
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from rich import print
 from sklearn.model_selection import KFold
@@ -20,7 +20,6 @@ from torch.utils import data as udata
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-
 from modules.classifier import ClassifierModel
 
 data_transforms = {
@@ -83,19 +82,19 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
 
 
 @hydra.main(config_path="config", config_name="config", version_base=None)
-def main(cfg: DictConfig) -> None:
+def main(cfg: Config) -> None:
     pl.seed_everything(cfg.trainer.seed)
     kf = KFold(n_splits=5, shuffle=True, random_state=cfg.trainer.seed)
 
     print("split dataset load")
     train_all_dataset = ImageFolder(
-        cfg.dataset.path.train, transform=data_transforms["train"]
+        cfg.dataset.train_path, transform=data_transforms["train"]
     )
 
     if cfg.dataset.aug is not None:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(
-            cfg.dataset.aug.path, transform=data_transforms["train"]
+            cfg.dataset.aug_path, transform=data_transforms["train"]
         )
         train_all_dataset = udata.ConcatDataset([train_all_dataset, augment_dataset])
 
@@ -108,7 +107,7 @@ def main(cfg: DictConfig) -> None:
     ):
         # データセットの設定
         test_dataset = ImageFolder(
-            cfg.dataset.path.test, transform=data_transforms["valid"]
+            cfg.dataset.test_path, transform=data_transforms["valid"]
         )
 
         # データローダーの設定
@@ -116,19 +115,19 @@ def main(cfg: DictConfig) -> None:
             train_all_dataset,
             train_idx,
             val_idx,
-            cfg.models.params.batch_size,
+            cfg.trainer.batch_size,
             generator=torch.Generator().manual_seed(cfg.trainer.seed),
         )
         test_loader = DataLoader(
             test_dataset,
-            batch_size=cfg.models.params.batch_size,
+            batch_size=cfg.trainer.batch_size,
             shuffle=False,
             pin_memory=True,
-            num_workers=8,
+            num_workers=cfg.trainer.num_workers,
         )
 
         # 保存先の設定
-        experiment_name = f"{cfg.models.params.model_name}: fold-{fold}"
+        experiment_name = f"{cfg.models.model_name}: fold-{fold}"
         save_path = f"{save_dir}/{experiment_name}"
         os.makedirs(save_path, exist_ok=True)
 
@@ -136,7 +135,7 @@ def main(cfg: DictConfig) -> None:
         net = ClassifierModel(
             cfg,
             cfg.trainer.num_class,
-            cfg.models.params.model_name,
+            cfg.models.model_name,
         )
 
         # setting callbacks
@@ -157,9 +156,9 @@ def main(cfg: DictConfig) -> None:
         wandb_logger = WandbLogger(
             save_dir=save_path,
             project=cfg.wandb.project,
-            group=f"{current_time:%m-%d}--model--{cfg.models.params.model_name}--dataset--{cfg.dataset.name}",
+            group=f"{current_time:%m-%d}--model--{cfg.models.model_name}--dataset--{cfg.dataset.name}",
             job_type=cfg.wandb.job_type,
-            tags=[cfg.models.params.model_name, cfg.dataset.name],
+            tags=[cfg.models.model_name, cfg.dataset.name],
             name=experiment_name,
         )
 

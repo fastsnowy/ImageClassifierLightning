@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
+from config import Config
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     MulticlassAccuracy,
@@ -14,8 +15,7 @@ from torchmetrics.classification import (
 class ClassifierModel(pl.LightningModule):
     def __init__(self, cfg, num_classes, model_name="vgg16") -> None:
         super().__init__()
-        self.cfg = cfg
-        self.num_classes = num_classes
+        self.cfg: Config = cfg
         self.save_hyperparameters()
         self.model = timm.create_model(
             model_name=model_name,
@@ -94,6 +94,14 @@ class ClassifierModel(pl.LightningModule):
         self.test_metrics.reset()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
-        # optimizer = torch.optim.Adam(self.parameters(), lr=0.02)
+        if self.cfg.trainer.optim_name == "SGD":
+            optimizer = torch.optim.SGD(
+                self.parameters(),
+                lr=self.cfg.trainer.lr,
+                momentum=self.cfg.trainer.momentum,
+            )
+        elif self.cfg.trainer.optim_name == "Adam":
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg.trainer.lr)
+        else:
+            raise NotImplementedError
         return optimizer
