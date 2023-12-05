@@ -5,4 +5,7 @@ num_workers: 8
 num_class: 4
 max_epochs: 20
 seed: 2023
+lr: 0.01
+optim_name: SGD
+momentum: 0.9
 save_dir: /workspace/outputs

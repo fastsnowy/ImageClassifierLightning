@@ -91,7 +91,7 @@ def main(cfg: Config) -> None:
         cfg.dataset.train_path, transform=data_transforms["train"]
     )
 
-    if cfg.dataset.aug is not None:
+    if cfg.trainer.augment:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(
             cfg.dataset.aug_path, transform=data_transforms["train"]
@@ -156,7 +156,7 @@ def main(cfg: Config) -> None:
         wandb_logger = WandbLogger(
             save_dir=save_path,
             project=cfg.wandb.project,
-            group=f"{current_time:%m-%d}--model--{cfg.models.model_name}--dataset--{cfg.dataset.name}",
+            group=f"model--{cfg.models.model_name}--dataset--{cfg.dataset.name}",
             job_type=cfg.wandb.job_type,
             tags=[cfg.models.model_name, cfg.dataset.name],
             name=experiment_name,

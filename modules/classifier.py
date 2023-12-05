@@ -25,9 +25,9 @@ class ClassifierModel(pl.LightningModule):
         metrics = MetricCollection(
             {
                 "accuracy": MulticlassAccuracy(num_classes=num_classes),
-                "precision": MulticlassPrecision(num_classes=num_classes),
-                "recall": MulticlassRecall(num_classes=num_classes),
-                "f1": MulticlassF1Score(num_classes=num_classes),
+                "precision": MulticlassPrecision(num_classes=num_classes, average="macro"),
+                "recall": MulticlassRecall(num_classes=num_classes, average="macro"),
+                "f1": MulticlassF1Score(num_classes=num_classes, average="macro"),
             }
         )
         self.train_metrics = metrics.clone(prefix="metrics/train_")
