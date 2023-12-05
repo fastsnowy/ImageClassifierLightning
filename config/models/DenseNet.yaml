@@ -1,12 +1,1 @@
-params:
-  model_name: densenet121
-  optim_name: SGD
-  batch_size: 32
-  num_class: 4
-  epochs: 40
-  seed: 42
-  pretrained: True
-
-optim_params:
-  lr: 0.01
-  momentum: 0.9
+model_name: densenet121

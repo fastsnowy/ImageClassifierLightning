@@ -1,11 +1,1 @@
-params:
-  model_name: vgg11
-  optim_name: SGD
-  batch_size: 32
-  num_class: 4
-  epochs: 40
-  seed: 2023
-
-optim_params:
-  lr: 0.01
-  momentum: 0.9
+model_name: vgg11

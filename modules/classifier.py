@@ -2,42 +2,37 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
-import torchmetrics
-import wandb
+from config import Config
+from torchmetrics import MetricCollection
+from torchmetrics.classification import (
+    MulticlassAccuracy,
+    MulticlassF1Score,
+    MulticlassPrecision,
+    MulticlassRecall,
+)
 
 
 class ClassifierModel(pl.LightningModule):
     def __init__(self, cfg, num_classes, model_name="vgg16") -> None:
         super().__init__()
-        self.cfg = cfg
-        self.num_classes = num_classes
+        self.cfg: Config = cfg
         self.save_hyperparameters()
         self.model = timm.create_model(
             model_name=model_name,
-            pretrained=False,
+            pretrained=cfg.trainer.pretrained,
             num_classes=num_classes,
         )
-        self.train_acc = torchmetrics.Accuracy(
-            task="multiclass",
-            num_classes=num_classes,
+        metrics = MetricCollection(
+            {
+                "accuracy": MulticlassAccuracy(num_classes=num_classes),
+                "precision": MulticlassPrecision(num_classes=num_classes, average="macro"),
+                "recall": MulticlassRecall(num_classes=num_classes, average="macro"),
+                "f1": MulticlassF1Score(num_classes=num_classes, average="macro"),
+            }
         )
-        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-        self.test_acc = torchmetrics.Accuracy(
-            task="multiclass",
-            num_classes=num_classes,
-        )
-        self.test_recall = torchmetrics.Recall(
-            task="multiclass",
-            num_classes=num_classes,
-        )
-        self.test_precision = torchmetrics.Precision(
-            task="multiclass",
-            num_classes=num_classes,
-        )
-        self.test_f1 = torchmetrics.F1Score(
-            task="multiclass",
-            num_classes=num_classes,
-        )
+        self.train_metrics = metrics.clone(prefix="metrics/train_")
+        self.val_metrics = metrics.clone(prefix="metrics/val_")
+        self.test_metrics = metrics.clone(prefix="metrics/test_")
 
     def forward(self, x):
         x = self.model(x)
@@ -46,8 +41,8 @@ class ClassifierModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.forward(x)
+        train_output = self.train_metrics(y_hat, y)
         train_loss = F.cross_entropy(y_hat, y)
-        self.train_acc(y_hat, y)
         self.log(
             "loss/train_loss",
             train_loss,
@@ -56,21 +51,14 @@ class ClassifierModel(pl.LightningModule):
             prog_bar=True,
             logger=True,
         )
-        self.log(
-            "accuracy/train_acc",
-            self.train_acc,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
+        self.log_dict(train_output)
         return train_loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.forward(x)
         val_loss = F.cross_entropy(y_hat, y)
-        self.val_acc(y_hat, y)
+        self.val_metrics.update(y_hat, y)
         self.log(
             "loss/val_loss",
             val_loss,
@@ -79,67 +67,41 @@ class ClassifierModel(pl.LightningModule):
             prog_bar=True,
             logger=True,
         )
-        self.log(
-            "accuracy/val_acc",
-            self.val_acc,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
         return {
-            "loss/val_loss": val_loss,
-            "accuracy/val_acc": self.val_acc,
-            "raw/out": y_hat,
             "raw/targets": y,
+            "raw/out": y_hat,
         }
 
-    def validation_epoch_end(self, outputs) -> None:
-        return None
+    def on_validation_epoch_end(self):
+        val_output = self.val_metrics.compute()
+        self.log_dict(val_output)
+        self.val_metrics.reset()
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.forward(x)
         test_loss = F.cross_entropy(y_hat, y)
-        self.test_acc(y_hat, y)
-        self.log_dict({"loss/test_loss": test_loss, "accuracy/test_acc": self.test_acc})
+        self.test_metrics.update(y_hat, y)
+        self.log("loss/test_loss", test_loss)
         return {
             "raw/preds": y_hat,
             "raw/targets": y,
         }
 
-    def test_epoch_end(self, outputs):
-        preds = torch.cat([x["raw/preds"] for x in outputs])  # y_hat
-        targets = torch.cat([x["raw/targets"] for x in outputs])  # y
-
-        test_recall = self.test_recall(preds, targets)
-        test_f1 = self.test_f1(preds, targets)
-        test_precision = self.test_precision(preds, targets)
-        preds_label = torch.argmax(preds, dim=1)
-        self.logger.experiment.log(
-            {
-                "metrics/confusion_matrix": wandb.plot.confusion_matrix(
-                    probs=None,
-                    y_true=targets.cpu().numpy(),
-                    preds=preds_label.cpu().numpy(),
-                ),
-            }
-        )
-
-        self.log_dict(
-            {
-                "metrics/test_recall": test_recall,
-                "metrics/test_f1": test_f1,
-                "metrics/test_precision": test_precision,
-            }
-        )
-
-        return {
-            "raw/preds": preds,
-            "raw/targets": targets,
-        }
+    def on_test_epoch_end(self):
+        test_output = self.test_metrics.compute()
+        self.log_dict(test_output)
+        self.test_metrics.reset()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
-        # optimizer = torch.optim.Adam(self.parameters(), lr=0.02)
+        if self.cfg.trainer.optim_name == "SGD":
+            optimizer = torch.optim.SGD(
+                self.parameters(),
+                lr=self.cfg.trainer.lr,
+                momentum=self.cfg.trainer.momentum,
+            )
+        elif self.cfg.trainer.optim_name == "Adam":
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg.trainer.lr)
+        else:
+            raise NotImplementedError
         return optimizer

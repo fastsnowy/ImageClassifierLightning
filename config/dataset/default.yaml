@@ -1,7 +1,4 @@
 name: dataset's name
-path:
-  train: path to train dataset
-  test: path to test dataset
-
-aug:
-  path: path to augmentation dataset
+train_path: path/to/train/dataset
+test_path: path/to/test/dataset
+aug_path: path/to/augmented/dataset
