@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks import (
     RichModelSummary,
     RichProgressBar,
 )
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from rich import print
 from sklearn.model_selection import KFold
 from torch.utils import data as udata
@@ -163,10 +163,12 @@ def main(cfg: DictConfig) -> None:
             name=experiment_name,
         )
 
+        csv_logger = CSVLogger(save_dir=save_path, name=experiment_name)
+
         # trainerの設定
         trainer = pl.Trainer(
             max_epochs=cfg.trainer.max_epochs,
-            logger=[wandb_logger],
+            logger=[wandb_logger, csv_logger],
             callbacks=[
                 earlyStoppingCallback,
                 ckptCallback,
@@ -175,9 +177,8 @@ def main(cfg: DictConfig) -> None:
             ],
             devices="auto",
             accelerator="gpu",
-            # gradient_clip_val=0.5,
         )
-        # 学習
+        # training
         trainer.fit(
             model=net,
             train_dataloaders=train_loader,
