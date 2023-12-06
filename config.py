@@ -1,10 +1,10 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
 class ModelConfig:
     model_name: str = ""
-
 
 
 @dataclass
@@ -27,7 +27,8 @@ class DatasetConfig:
     name: str = ""
     train_path: str = ""
     test_path: str = ""
-    aug_path: str | None = None
+    aug_path: Optional[str] = None
+
 
 @dataclass
 class WandbConfig:
