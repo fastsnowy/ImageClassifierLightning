@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
-from config import Config
+import wandb
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     MulticlassAccuracy,
@@ -11,11 +11,15 @@ from torchmetrics.classification import (
     MulticlassRecall,
 )
 
+from config import Config
+
 
 class ClassifierModel(pl.LightningModule):
-    def __init__(self, cfg, num_classes, model_name="vgg16") -> None:
+    def __init__(
+        self, cfg: Config, num_classes: int, model_name: str = "vgg16"
+    ) -> None:
         super().__init__()
-        self.cfg: Config = cfg
+        self.cfg = cfg
         self.save_hyperparameters()
         self.model = timm.create_model(
             model_name=model_name,
@@ -25,7 +29,9 @@ class ClassifierModel(pl.LightningModule):
         metrics = MetricCollection(
             {
                 "accuracy": MulticlassAccuracy(num_classes=num_classes),
-                "precision": MulticlassPrecision(num_classes=num_classes, average="macro"),
+                "precision": MulticlassPrecision(
+                    num_classes=num_classes, average="macro"
+                ),
                 "recall": MulticlassRecall(num_classes=num_classes, average="macro"),
                 "f1": MulticlassF1Score(num_classes=num_classes, average="macro"),
             }
@@ -33,6 +39,9 @@ class ClassifierModel(pl.LightningModule):
         self.train_metrics = metrics.clone(prefix="metrics/train_")
         self.val_metrics = metrics.clone(prefix="metrics/val_")
         self.test_metrics = metrics.clone(prefix="metrics/test_")
+
+        self.test_step_y_hat = []
+        self.test_step_y = []
 
     def forward(self, x):
         x = self.model(x)
@@ -82,6 +91,9 @@ class ClassifierModel(pl.LightningModule):
         y_hat = self.forward(x)
         test_loss = F.cross_entropy(y_hat, y)
         self.test_metrics.update(y_hat, y)
+        self.test_step_y_hat.append(y_hat)
+        self.test_step_y.append(y)
+
         self.log("loss/test_loss", test_loss)
         return {
             "raw/preds": y_hat,
@@ -90,6 +102,19 @@ class ClassifierModel(pl.LightningModule):
 
     def on_test_epoch_end(self):
         test_output = self.test_metrics.compute()
+        y_hat = torch.cat(self.test_step_y_hat)
+        preds_label = torch.argmax(y_hat, dim=1)
+        y = torch.cat(self.test_step_y)
+        # wandb confusion matrix
+        self.logger.experiment.log(
+            {
+                "Charts/confusion_matrix": wandb.plot.confusion_matrix(
+                    probs=None,
+                    y_true=y.cpu().numpy(),
+                    preds=preds_label.cpu().numpy(),
+                ),
+            }
+        )
         self.log_dict(test_output)
         self.test_metrics.reset()
 
