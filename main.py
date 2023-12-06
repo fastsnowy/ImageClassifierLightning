@@ -12,7 +12,6 @@ from pytorch_lightning.callbacks import (
     RichModelSummary,
     RichProgressBar,
 )
-from config import Config
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from rich import print
 from sklearn.model_selection import KFold
@@ -20,6 +19,8 @@ from torch.utils import data as udata
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+
+from config import Config
 from modules.classifier import ClassifierModel
 
 data_transforms = {
@@ -140,16 +141,16 @@ def main(cfg: Config) -> None:
 
         # setting callbacks
         ckptCallback = ModelCheckpoint(
-            monitor="loss/val_loss",
-            mode="min",
+            monitor=cfg.trainer.early_stopping_monitor,
+            mode=cfg.trainer.early_stopping_mode,
             dirpath=save_path,
             filename="{epoch}--{val_loss:.3f}",
         )
         earlyStoppingCallback = EarlyStopping(
-            monitor="loss/val_loss",
-            patience=3,
-            mode="min",
-            min_delta=0.01,
+            monitor=cfg.trainer.early_stopping_monitor,
+            patience=cfg.trainer.early_stopping_patience,
+            mode=cfg.trainer.early_stopping_mode,
+            min_delta=cfg.trainer.early_stopping_min_delta,
         )
 
         # setting logger

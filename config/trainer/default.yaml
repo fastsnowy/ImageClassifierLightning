@@ -8,4 +8,9 @@ seed: 2023
 lr: 0.01
 optim_name: SGD
 momentum: 0.9
+num_folds: 5
+early_stopping_monitor: loss/val_loss
+early_stopping_mode: min
+early_stopping_patience: 3
+early_stopping_min_delta:  0.01
 save_dir: /workspace/outputs
