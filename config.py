@@ -16,10 +16,18 @@ class TrainerConfig:
     max_epochs: int = 20
     num_classes: int = 10
     seed: int = 42
-    save_dir: str = "models"
     optim_name: str = "SGD"
     lr: float = 0.01
+    optim_name: str = "SGD"
     momentum: float = 0.9
+    num_fold: int = 5
+    early_stopping_patience: int = 3
+    early_stopping_min_delta: float = 0.01
+    early_stopping_mode: str = "min"
+    early_stopping_monitor: str = "loss/val_loss"
+    logger: str = "wandb"
+    checkpoint_callback: bool = True
+    save_dir: str = "models"
 
 
 @dataclass

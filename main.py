@@ -12,7 +12,6 @@ from pytorch_lightning.callbacks import (
     RichModelSummary,
     RichProgressBar,
 )
-from config import Config
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from rich import print
 from sklearn.model_selection import KFold
@@ -20,6 +19,8 @@ from torch.utils import data as udata
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+
+from config import Config
 from modules.classifier import ClassifierModel
 
 data_transforms = {
@@ -59,7 +60,7 @@ class MySubset(torch.utils.data.Dataset):
         return len(self.indices)
 
 
-def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
+def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator, num_workers):
     train_sampler = udata.SubsetRandomSampler(train_idx, generator=generator)
     val_sampler = udata.SubsetRandomSampler(val_idx, generator=generator)
     train_loader = DataLoader(
@@ -67,7 +68,7 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
         batch_size,
         shuffle=False,
         pin_memory=True,
-        num_workers=8,
+        num_workers=num_workers,
         sampler=train_sampler,
     )
     val_loader = DataLoader(
@@ -75,7 +76,7 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
         batch_size,
         shuffle=False,
         pin_memory=True,
-        num_workers=8,
+        num_workers=num_workers,
         sampler=val_sampler,
     )
     return train_loader, val_loader
@@ -84,17 +85,25 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
 @hydra.main(config_path="config", config_name="config", version_base=None)
 def main(cfg: Config) -> None:
     pl.seed_everything(cfg.trainer.seed)
-    kf = KFold(n_splits=5, shuffle=True, random_state=cfg.trainer.seed)
+    kf = KFold(
+        n_splits=cfg.trainer.num_fold,
+        shuffle=True,
+        random_state=cfg.trainer.seed,
+    )
 
     print("split dataset load")
     train_all_dataset = ImageFolder(
-        cfg.dataset.train_path, transform=data_transforms["train"]
+        cfg.dataset.train_path,
+        transform=data_transforms["train"],
     )
+
+    num_classes = len(train_all_dataset.class_to_idx.keys())
 
     if cfg.trainer.augment:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(
-            cfg.dataset.aug_path, transform=data_transforms["train"]
+            cfg.dataset.aug_path,
+            transform=data_transforms["train"],
         )
         train_all_dataset = udata.ConcatDataset([train_all_dataset, augment_dataset])
 
@@ -107,7 +116,8 @@ def main(cfg: Config) -> None:
     ):
         # データセットの設定
         test_dataset = ImageFolder(
-            cfg.dataset.test_path, transform=data_transforms["valid"]
+            cfg.dataset.test_path,
+            transform=data_transforms["valid"],
         )
 
         # データローダーの設定
@@ -117,6 +127,7 @@ def main(cfg: Config) -> None:
             val_idx,
             cfg.trainer.batch_size,
             generator=torch.Generator().manual_seed(cfg.trainer.seed),
+            num_workers=cfg.trainer.num_workers,
         )
         test_loader = DataLoader(
             test_dataset,
@@ -134,22 +145,22 @@ def main(cfg: Config) -> None:
         # モデルの構築
         net = ClassifierModel(
             cfg,
-            cfg.trainer.num_class,
+            num_classes,
             cfg.models.model_name,
         )
 
         # setting callbacks
         ckptCallback = ModelCheckpoint(
-            monitor="loss/val_loss",
-            mode="min",
+            monitor=cfg.trainer.early_stopping_monitor,
+            mode=cfg.trainer.early_stopping_mode,
             dirpath=save_path,
             filename="{epoch}--{val_loss:.3f}",
         )
         earlyStoppingCallback = EarlyStopping(
-            monitor="loss/val_loss",
-            patience=3,
-            mode="min",
-            min_delta=0.01,
+            monitor=cfg.trainer.early_stopping_monitor,
+            patience=cfg.trainer.early_stopping_patience,
+            mode=cfg.trainer.early_stopping_mode,
+            min_delta=cfg.trainer.early_stopping_min_delta,
         )
 
         # setting logger
@@ -164,10 +175,17 @@ def main(cfg: Config) -> None:
 
         csv_logger = CSVLogger(save_dir=save_path, name=experiment_name)
 
+        if cfg.trainer.logger == "wandb":
+            logger = wandb_logger
+        elif cfg.trainer.logger == "csv":
+            logger = csv_logger
+        else:
+            raise ValueError("logger must be 'wandb' or 'csv'.")
+
         # trainerの設定
         trainer = pl.Trainer(
             max_epochs=cfg.trainer.max_epochs,
-            logger=[wandb_logger, csv_logger],
+            logger=[logger],
             callbacks=[
                 earlyStoppingCallback,
                 ckptCallback,
