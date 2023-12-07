@@ -38,7 +38,7 @@ class ClassifierModel(pl.LightningModule):
         )
         self.train_metrics = metrics.clone(prefix="metrics/train_")
         self.val_metrics = metrics.clone(prefix="metrics/val_")
-        self.test_metrics = metrics.clone(prefix="metrics/test_")
+        self.test_metrics = metrics.clone(prefix="tests/test_")
 
         self.test_step_y_hat = []
         self.test_step_y = []
