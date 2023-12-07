@@ -12,5 +12,6 @@ num_folds: 5
 early_stopping_monitor: loss/val_loss
 early_stopping_mode: min
 early_stopping_patience: 3
-early_stopping_min_delta:  0.01
+early_stopping_min_delta: 0.01
+logger: wandb
 save_dir: /workspace/outputs

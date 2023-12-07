@@ -60,7 +60,7 @@ class MySubset(torch.utils.data.Dataset):
         return len(self.indices)
 
 
-def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
+def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator, num_workers):
     train_sampler = udata.SubsetRandomSampler(train_idx, generator=generator)
     val_sampler = udata.SubsetRandomSampler(val_idx, generator=generator)
     train_loader = DataLoader(
@@ -68,7 +68,7 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
         batch_size,
         shuffle=False,
         pin_memory=True,
-        num_workers=8,
+        num_workers=num_workers,
         sampler=train_sampler,
     )
     val_loader = DataLoader(
@@ -76,7 +76,7 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator):
         batch_size,
         shuffle=False,
         pin_memory=True,
-        num_workers=8,
+        num_workers=num_workers,
         sampler=val_sampler,
     )
     return train_loader, val_loader
@@ -118,6 +118,7 @@ def main(cfg: Config) -> None:
             val_idx,
             cfg.trainer.batch_size,
             generator=torch.Generator().manual_seed(cfg.trainer.seed),
+            num_workers=cfg.trainer.num_workers,
         )
         test_loader = DataLoader(
             test_dataset,
@@ -165,10 +166,19 @@ def main(cfg: Config) -> None:
 
         csv_logger = CSVLogger(save_dir=save_path, name=experiment_name)
 
+        if cfg.trainer.logger == "wandb":
+            logger = wandb_logger
+        elif cfg.trainer.logger == "csv":
+            logger = csv_logger
+        else:
+            raise NotImplementedError
+
         # trainerの設定
         trainer = pl.Trainer(
             max_epochs=cfg.trainer.max_epochs,
-            logger=[wandb_logger, csv_logger],
+            logger=[
+                logger,
+            ],
             callbacks=[
                 earlyStoppingCallback,
                 ckptCallback,

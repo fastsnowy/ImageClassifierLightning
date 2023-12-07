@@ -23,6 +23,7 @@ class TrainerConfig:
     early_stopping_mode: str = "min"
     early_stopping_patience: int = 3
     early_stopping_min_delta: float = 0.01
+    logger: str = "wandb"
     save_dir: str = "models"
 
 
