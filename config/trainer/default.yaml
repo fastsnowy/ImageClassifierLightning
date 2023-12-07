@@ -1,8 +1,7 @@
 augment: False
 pretrained: False
 batch_size: 32
-num_workers: 8
-num_class: 4
+num_workers: 4
 max_epochs: 20
 seed: 2023
 lr: 0.01
@@ -14,4 +13,5 @@ early_stopping_mode: min
 early_stopping_patience: 3
 early_stopping_min_delta: 0.01
 logger: wandb
-save_dir: /workspace/outputs
+checkpoint_callback: True
+save_dir: /outputs

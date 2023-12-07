@@ -92,6 +92,8 @@ def main(cfg: Config) -> None:
         cfg.dataset.train_path, transform=data_transforms["train"]
     )
 
+    num_classes = len(train_all_dataset.class_to_idx.keys())
+
     if cfg.trainer.augment:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(
@@ -136,7 +138,7 @@ def main(cfg: Config) -> None:
         # モデルの構築
         net = ClassifierModel(
             cfg,
-            cfg.trainer.num_class,
+            num_classes,
             cfg.models.model_name,
         )
 
@@ -181,7 +183,7 @@ def main(cfg: Config) -> None:
             ],
             callbacks=[
                 earlyStoppingCallback,
-                ckptCallback,
+                ckptCallback if cfg.trainer.checkpoint_callback else None,
                 RichModelSummary(),
                 RichProgressBar(),
             ],

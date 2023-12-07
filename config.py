@@ -12,7 +12,6 @@ class TrainerConfig:
     pretrained: bool = False
     batch_size: int = 32
     num_workers: int = 4
-    num_classes: int = 10
     max_epochs: int = 20
     seed: int = 42
     optim_name: str = "SGD"
@@ -24,6 +23,7 @@ class TrainerConfig:
     early_stopping_patience: int = 3
     early_stopping_min_delta: float = 0.01
     logger: str = "wandb"
+    checkpoint_callback: bool = True
     save_dir: str = "models"
 
 
