@@ -175,18 +175,22 @@ def main(cfg: Config) -> None:
         else:
             raise NotImplementedError
 
-        # trainerの設定
+        # setting callbacks
+        my_callbacks = [
+            earlyStoppingCallback,
+            RichModelSummary(),
+            RichProgressBar(),
+        ]
+        if cfg.trainer.checkpoint_callback:
+            my_callbacks.append(ckptCallback)
+
+        # setting trainer
         trainer = pl.Trainer(
             max_epochs=cfg.trainer.max_epochs,
             logger=[
                 logger,
             ],
-            callbacks=[
-                earlyStoppingCallback,
-                ckptCallback if cfg.trainer.checkpoint_callback else None,
-                RichModelSummary(),
-                RichProgressBar(),
-            ],
+            callbacks=my_callbacks,
             devices="auto",
             accelerator="gpu",
         )
