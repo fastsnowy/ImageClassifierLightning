@@ -1,5 +1,5 @@
 [project]
-name = "imageclassifierlightning"
+name = "ImageClassifierLightning"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
@@ -22,7 +22,7 @@ readme = "README.md"
 requires-python = ">= 3.10"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling<=1.18.0"]
 build-backend = "hatchling.build"
 
 [tool.rye]
@@ -32,7 +32,7 @@ dev-dependencies = []
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[[tool.rye.sources]]
+[[sources]]
 name="torch"
 url="https://download.pytorch.org/whl/cu121"
 type="index"
