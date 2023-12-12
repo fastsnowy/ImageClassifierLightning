@@ -86,7 +86,7 @@ def setup_dataloader(dataset, train_idx, val_idx, batch_size, generator, num_wor
 def main(cfg: Config) -> None:
     pl.seed_everything(cfg.trainer.seed)
     kf = KFold(
-        n_splits=cfg.trainer.num_fold,
+        n_splits=cfg.trainer.num_folds,
         shuffle=True,
         random_state=cfg.trainer.seed,
     )
