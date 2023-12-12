@@ -14,7 +14,6 @@ class TrainerConfig:
     batch_size: int = 32
     num_workers: int = 4
     max_epochs: int = 20
-    num_classes: int = 10
     seed: int = 42
     optim_name: str = "SGD"
     lr: float = 0.01
