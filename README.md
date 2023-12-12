@@ -69,17 +69,20 @@ early_stopping_patience: 3
 early_stopping_min_delta: 0.01
 logger: wandb
 checkpoint_callback: False
-save_dir: /outputs
+save_dir: ./outputs
 ```
 
 ### classifier
 
 ```bash
 rye shell
-python main.py dataset=yourdataset, models=modelsname,trainer=yourtrainer
+python main.py dataset=yourdataset models=modelsname trainer=yourtrainer
 ```
 
 #### multi-run
 ```bash
-python main.py -m dataset=yourdataset1,yourdataset2, models=modelsname1,modelsname2,trainer=yourtrainer
+python main.py -m \
+dataset=yourdataset1,yourdataset2 \
+models=modelsname1,modelsname2 \
+trainer=yourtrainer
 ```

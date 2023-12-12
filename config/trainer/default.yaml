@@ -14,4 +14,4 @@ early_stopping_patience: 3
 early_stopping_min_delta: 0.01
 logger: wandb
 checkpoint_callback: False
-save_dir: /outputs
+save_dir: ./outputs
