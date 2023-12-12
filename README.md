@@ -16,7 +16,7 @@ rye sync --no-lock
 
 ## Usage
 
-logger select wandb or csv
+logger select **wandb** or **csv**
 
 if you want to use wandb, you need to login wandb.
 
@@ -36,6 +36,9 @@ cp config/trainer/default.yaml config/trainer/yourtrainer.yaml
 1. dataset
 
 **need to edit name, train_path, test_path, aug_path**
+
+> [!NOTE]
+> if you don't use augment data, you don't need to edit aug_path (blank is ok)
 
 ```yaml
 # config/dataset/default.yaml
