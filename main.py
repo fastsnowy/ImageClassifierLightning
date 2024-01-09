@@ -181,17 +181,16 @@ def main(cfg: Config) -> None:
             logger = csv_logger
         else:
             raise ValueError("logger must be 'wandb' or 'csv'.")
+        
+        callback_list = [earlyStoppingCallback, RichModelSummary(), RichProgressBar()]
+        if cfg.trainer.checkpoint_callback:
+            callback_list.append(ckptCallback)
 
         # trainerの設定
         trainer = pl.Trainer(
             max_epochs=cfg.trainer.max_epochs,
             logger=[logger],
-            callbacks=[
-                earlyStoppingCallback,
-                ckptCallback,
-                RichModelSummary(),
-                RichProgressBar(),
-            ],
+            callbacks=callback_list,
             devices="auto",
             accelerator="gpu",
         )
