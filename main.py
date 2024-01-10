@@ -12,7 +12,8 @@ from pytorch_lightning.callbacks import (
     RichModelSummary,
     RichProgressBar,
 )
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
+from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers.wandb import WandbLogger
 from rich import print
 from sklearn.model_selection import KFold
 from torch.utils import data as udata
@@ -43,7 +44,7 @@ data_transforms = {
 }
 
 
-class MySubset(torch.utils.data.Dataset):
+class MySubset(udata.Dataset):
     def __init__(self, dataset, indices, transform=None):
         self.dataset = dataset
         self.indices = indices
@@ -102,7 +103,7 @@ def main(cfg: Config) -> None:
     if cfg.trainer.augment:
         print("augment dataset concatting")
         augment_dataset = ImageFolder(
-            cfg.dataset.aug_path,
+            cfg.dataset.aug_path,  # type: ignore
             transform=data_transforms["train"],
         )
         train_all_dataset = udata.ConcatDataset([train_all_dataset, augment_dataset])
@@ -181,7 +182,7 @@ def main(cfg: Config) -> None:
             logger = csv_logger
         else:
             raise ValueError("logger must be 'wandb' or 'csv'.")
-        
+
         callback_list = [earlyStoppingCallback, RichModelSummary(), RichProgressBar()]
         if cfg.trainer.checkpoint_callback:
             callback_list.append(ckptCallback)
